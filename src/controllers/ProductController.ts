@@ -8,10 +8,16 @@ export class ProductController {
             const { name, description, price, stock, category_slug, store_id, variants } = req.body;
             const userId = req.user.id || req.user.userId;
             
-            // 1. Validate Ownership of Store
+            // 1. Validate Ownership of Store (Admins/System bypass)
             const storeCheck = await query('SELECT owner_id FROM stores WHERE id = $1', [store_id]);
             if (storeCheck.rows.length === 0) return res.status(404).json({ error: 'Store not found' });
-            if (storeCheck.rows[0].owner_id !== userId) return res.status(403).json({ error: 'Not authorized' });
+            
+            const userRoles = req.user?.roles || [];
+            const isAdmin = userRoles.includes('ADMIN') || userRoles.includes('SYSTEM');
+            
+            if (storeCheck.rows[0].owner_id !== userId && !isAdmin) {
+                return res.status(403).json({ error: 'Not authorized' });
+            }
 
             // 2. ECONOMY VALIDATION: PRICE CAP
             // ... (rest of logic stays same)
@@ -115,10 +121,16 @@ export class ProductController {
             const { id } = req.params;
             const userId = req.user.id || req.user.userId;
 
-            // 1. Verify Store Ownership
+            // 1. Verify Store Ownership (Admins/System bypass)
             const storeRes = await query('SELECT owner_id FROM stores WHERE id = $1', [id]);
             if (storeRes.rows.length === 0) return res.status(404).json({ error: 'Store not found' });
-            if (storeRes.rows[0].owner_id !== userId) return res.status(403).json({ error: 'Unauthorized' });
+            
+            const userRoles = req.user?.roles || [];
+            const isAdmin = userRoles.includes('ADMIN') || userRoles.includes('SYSTEM');
+            
+            if (storeRes.rows[0].owner_id !== userId && !isAdmin) {
+                return res.status(403).json({ error: 'Unauthorized' });
+            }
 
             // 2. Get Products with Variants
             const productsRes = await query(`
@@ -183,7 +195,74 @@ export class ProductController {
                 message: "Product transferred successfully",
                 product: result.rows[0]
             });
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
 
+    static async updateProduct(req: any, res: Response) {
+        try {
+            const { id } = req.params;
+            const { name, description, price, stock, category } = req.body;
+            const userId = req.user.id || req.user.userId;
+            const userRoles = req.user?.roles || [];
+            const isAdmin = userRoles.includes('ADMIN') || userRoles.includes('SYSTEM');
+
+            // 1. Verify Ownership or Admin
+            const prodRes = await query(`
+                SELECT p.*, s.owner_id 
+                FROM products p 
+                JOIN stores s ON p.store_id = s.id 
+                WHERE p.id = $1
+            `, [id]);
+
+            if (prodRes.rows.length === 0) return res.status(404).json({ error: 'Product not found' });
+            if (prodRes.rows[0].owner_id !== userId && !isAdmin) {
+                return res.status(403).json({ error: 'Unauthorized' });
+            }
+
+            // 2. Perform Update
+            const result = await query(`
+                UPDATE products 
+                SET name = $1, description = $2, price = $3, stock = $4, category = $5
+                WHERE id = $6 RETURNING *
+            `, [name, description, parseFloat(price), parseInt(stock), category, id]);
+
+            res.json(result.rows[0]);
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
+    }
+
+    static async deleteProduct(req: any, res: Response) {
+        try {
+            const { id } = req.params;
+            const userId = req.user.id || req.user.userId;
+            const userRoles = req.user?.roles || [];
+            const isAdmin = userRoles.includes('ADMIN') || userRoles.includes('SYSTEM');
+
+            // 1. Verify Ownership or Admin
+            const prodRes = await query(`
+                SELECT p.*, s.owner_id 
+                FROM products p 
+                JOIN stores s ON p.store_id = s.id 
+                WHERE p.id = $1
+            `, [id]);
+
+            if (prodRes.rows.length === 0) return res.status(404).json({ error: 'Product not found' });
+            if (prodRes.rows[0].owner_id !== userId && !isAdmin) {
+                return res.status(403).json({ error: 'Unauthorized' });
+            }
+
+            // 2. Perform Delete (and variants due to cascade hopefully, or manual)
+            // Assuming DB has cascade, otherwise we delete variants first. 
+            // In setup we usually have cascades, but safer to delete variants.
+            await query('DELETE FROM product_variants WHERE product_id = $1', [id]);
+            await query('DELETE FROM products WHERE id = $1', [id]);
+
+            res.json({ message: 'Product deleted successfully' });
         } catch (error) {
             console.error(error);
             res.status(500).json({ error: 'Internal Server Error' });

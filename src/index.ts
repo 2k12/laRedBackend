@@ -34,6 +34,8 @@ app.get('/api/store/products/:id', StoreController.getProductById);
 app.post('/api/products', authenticateToken, ProductController.createProduct);
 app.get('/api/products/categories', authenticateToken, ProductController.getCategoriesAndCaps);
 app.get('/api/stores/:id/products', authenticateToken, ProductController.getProductsByStore);
+app.put('/api/products/:id', authenticateToken, ProductController.updateProduct);
+app.delete('/api/products/:id', authenticateToken, ProductController.deleteProduct);
 app.put('/api/products/:id/transfer', authenticateToken, ProductController.transferProduct);
 
 // Category Management
