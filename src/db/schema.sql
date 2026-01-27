@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS products (
   description TEXT,
   price DECIMAL(20, 2) NOT NULL, -- Price in UC
   stock INTEGER DEFAULT 0,
+  sku VARCHAR(100),
   image_url TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

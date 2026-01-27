@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { query } from '../config/db';
+import { v4 as uuidv4 } from 'uuid';
 
 export class ProductController {
 
@@ -45,12 +46,18 @@ export class ProductController {
                 });
             }
 
-            // 3. Insert Product
+
+            // 3. Generate ID and SKU
+            const newId = uuidv4();
+            const skuPart = req.body.sku_part || 'GEN';
+            const sku = `${newId.substring(0, 8).toUpperCase()}-${skuPart.toUpperCase().replace(/[^A-Z0-9-]/g, '')}`;
+
+            // 4. Insert Product
             const result = await query(`
-                INSERT INTO products (store_id, name, description, price, stock, category, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                INSERT INTO products (id, store_id, name, description, price, stock, category, sku, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
                 RETURNING *
-            `, [store_id, name, description, price, stock, category_slug]);
+            `, [newId, store_id, name, description, price, stock, category_slug, sku]);
 
             const product = result.rows[0];
 
