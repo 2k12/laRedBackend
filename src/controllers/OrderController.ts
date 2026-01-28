@@ -169,7 +169,7 @@ export class OrderController {
       if (product.seller_phone) {
         const phone = product.seller_phone.replace(/\D/g, "");
         const text = encodeURIComponent(
-          `Hola, compré tu producto "${product.name}" en UniversityStore. Mi código de entrega es: ${deliveryCode}. ¿Dónde nos vemos?`,
+          `Hola, compré tu producto "${product.name}" en LaRed. ¿Dónde nos vemos?`,
         );
         whatsappUrl = `https://wa.me/${phone}?text=${text}`;
       }
