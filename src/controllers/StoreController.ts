@@ -45,9 +45,8 @@ export class StoreController {
       }
 
       if (status && status !== "all") {
-        const isNew = status === "new";
-        queryParams.push(isNew);
-        queryText += ` AND p.is_new = $${queryParams.length}`;
+        queryParams.push(status.toUpperCase());
+        queryText += ` AND p.condition = $${queryParams.length}`;
       }
 
       if (category) {
@@ -293,6 +292,18 @@ export class StoreController {
         `SELECT id, name, email FROM users ORDER BY name ASC`,
       );
       res.json({ users: result.rows });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
+
+  static async getPublicStores(req: Request, res: Response) {
+    try {
+      const result = await query(
+        `SELECT id, name FROM stores ORDER BY name ASC`,
+      );
+      res.json({ stores: result.rows });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: "Internal Server Error" });

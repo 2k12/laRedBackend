@@ -18,9 +18,15 @@ app.use(express.json());
 app.use(requestLogger);
 
 // Auth Routes
+app.post("/api/auth/register", AuthController.register);
 app.post("/api/auth/login", AuthController.login);
 app.get("/api/users/me", authenticateToken, AuthController.me);
 app.put("/api/users/me", authenticateToken, AuthController.updateMe);
+app.put(
+  "/api/users/me/password",
+  authenticateToken,
+  AuthController.updatePassword,
+);
 
 // Store Routes
 import { StoreController } from "./controllers/StoreController";
@@ -29,6 +35,7 @@ import { CategoryController } from "./controllers/CategoryController";
 
 app.get("/api/store/products/public", StoreController.getPublicProducts);
 app.get("/api/store/products/:id", StoreController.getProductById);
+app.get("/api/stores/public", StoreController.getPublicStores);
 
 // Product Management & Economy Checks
 app.post("/api/products", authenticateToken, ProductController.createProduct);
@@ -130,6 +137,15 @@ app.get(
   RewardController.generateToken,
 );
 app.post("/api/rewards/claim", authenticateToken, RewardController.claimReward);
+
+// User Management (Admin/System)
+import { UserController } from "./controllers/UserController";
+app.get("/api/admin/users", authenticateToken, UserController.listAllUsers);
+app.post(
+  "/api/admin/users/activate",
+  authenticateToken,
+  UserController.activateUsers,
+);
 
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", service: "university-store-api" });
