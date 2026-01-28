@@ -107,7 +107,7 @@ export class StoreController {
       // Get current product
       const result = await query(
         `
-                SELECT p.*, s.name as store_name 
+                SELECT p.*, s.name as store_name, s.owner_id as owner_id 
                 FROM products p
                 LEFT JOIN stores s ON p.store_id = s.id
                 WHERE p.id = $1
@@ -133,6 +133,7 @@ export class StoreController {
                            LAG(id) OVER (ORDER BY created_at DESC, id DESC) as prev_id,
                            LEAD(id) OVER (ORDER BY created_at DESC, id DESC) as next_id
                     FROM products
+                    WHERE stock > 0
                 )
                 SELECT prev_id, next_id FROM sorted_ids WHERE id = $1
             `,
