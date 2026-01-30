@@ -156,7 +156,7 @@ export class OrderController {
             `,
         [
           product.owner_id,
-          `Vendiste ${product.name} por ${requiredCoins} UC`,
+          `Vendiste ${product.name} por ${requiredCoins} PL`,
           newOrder.id,
         ],
       );

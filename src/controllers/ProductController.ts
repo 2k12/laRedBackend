@@ -59,7 +59,7 @@ export class ProductController {
 
       if (price > maxAllowedPrice) {
         return res.status(400).json({
-          error: `Price Check Failed: El precio ${price} UC excede el límite permitido para esta categoría.`,
+          error: `Price Check Failed: El precio ${price} PL excede el límite permitido para esta categoría.`,
           details: {
             max_allowed: Math.floor(maxAllowedPrice),
             average_wealth: Math.floor(averageWealth),

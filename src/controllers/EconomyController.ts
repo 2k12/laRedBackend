@@ -115,7 +115,7 @@ export class EconomyController {
       }
 
       console.log(
-        `Economy Plan: Need ${totalNeeded} UC for ${distributionPlan.length} users.`,
+        `Economy Plan: Need ${totalNeeded} PL for ${distributionPlan.length} users.`,
       );
 
       // 3. MINT to Treasury (New Money Creation)
