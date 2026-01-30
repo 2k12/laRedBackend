@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { query } from "../config/db";
 import { LedgerService } from "../services/LedgerService";
+import { CacheService, CACHE_TTL } from "../utils/cache";
 
 const ledgerService = new LedgerService();
 
@@ -56,6 +57,29 @@ export class AuthController {
     } catch (error) {
       console.error("Login Error:", error);
       res.status(500).json({ error: "Error interno del servidor" });
+    }
+  }
+
+  static async logout(req: Request, res: Response) {
+    try {
+      const authHeader = req.headers["authorization"];
+      const token = authHeader && authHeader.split(" ")[1];
+
+      if (token) {
+        const decoded: any = jwt.decode(token);
+        if (decoded && decoded.exp) {
+          const now = Math.floor(Date.now() / 1000);
+          const ttl = decoded.exp - now;
+          if (ttl > 0) {
+            await CacheService.set(`blacklist:${token}`, "true", ttl);
+          }
+        }
+      }
+
+      res.json({ message: "Sesión cerrada correctamente" });
+    } catch (error) {
+      console.error("Logout Error:", error);
+      res.status(500).json({ error: "Error al cerrar sesión" });
     }
   }
 
@@ -137,6 +161,10 @@ export class AuthController {
       const updateQuery = `UPDATE users SET ${fields.join(", ")} WHERE id = $${idx} RETURNING id, name, email, roles`;
 
       const result = await query(updateQuery, values);
+
+      // Invalidate Profile Cache
+      await CacheService.delete(`user:profile:${userId}`);
+
       res.json({ user: result.rows[0], message: "Perfil actualizado" });
     } catch (error) {
       console.error("Update Me Error:", error);

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { query } from "../config/db";
 import { v4 as uuidv4 } from "uuid";
+import { CacheService } from "../utils/cache";
 
 export class ProductController {
   static async createProduct(req: any, res: Response) {
@@ -112,6 +113,9 @@ export class ProductController {
           );
         }
       }
+
+      // Invalidate Cache
+      await CacheService.deleteByPattern("products:feed:*");
 
       res.status(201).json(product);
     } catch (error) {
@@ -260,6 +264,10 @@ export class ProductController {
         [target_store_id, id],
       );
 
+      // Invalidate Cache
+      await CacheService.deleteByPattern("products:feed:*");
+      await CacheService.deleteByPattern(`product:detail:${id}:*`);
+
       res.json({
         message: "Product transferred successfully",
         product: result.rows[0],
@@ -314,6 +322,10 @@ export class ProductController {
         ],
       );
 
+      // Invalidate Cache
+      await CacheService.deleteByPattern("products:feed:*");
+      await CacheService.deleteByPattern(`product:detail:${id}:*`);
+
       res.json(result.rows[0]);
     } catch (error) {
       console.error(error);
@@ -351,6 +363,10 @@ export class ProductController {
       // In setup we usually have cascades, but safer to delete variants.
       await query("DELETE FROM product_variants WHERE product_id = $1", [id]);
       await query("DELETE FROM products WHERE id = $1", [id]);
+
+      // Invalidate Cache
+      await CacheService.deleteByPattern("products:feed:*");
+      await CacheService.deleteByPattern(`product:detail:${id}:*`);
 
       res.json({ message: "Product deleted successfully" });
     } catch (error) {

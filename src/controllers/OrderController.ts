@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { query } from "../config/db";
 import { v4 as uuidv4 } from "uuid";
+import { CacheService, CACHE_TTL } from "../utils/cache";
 
 export class OrderController {
   // --- ATOMIC PURCHASE TRANSACTION ("QUANTUM HOLD") ---
@@ -174,6 +175,13 @@ export class OrderController {
         whatsappUrl = `https://wa.me/${phone}?text=${text}`;
       }
 
+      // Invalidate Stock Cache
+      await CacheService.deleteByPattern("products:feed:*");
+      await CacheService.deleteByPattern(`product:detail:${productId}:*`);
+      // Invalidate Order Lists (Buyer/Seller)
+      await CacheService.deleteByPattern(`orders:${buyerId}:*`);
+      await CacheService.deleteByPattern(`orders:${product.owner_id}:*`);
+
       res.status(201).json({
         message: "Purchase Successful",
         order: newOrder,
@@ -216,7 +224,14 @@ export class OrderController {
                 `;
       }
 
+      // Check Cache
+      const cacheKey = `orders:${userId}:${role || "default"}`;
+      const cached = await CacheService.get(cacheKey);
+      if (cached) return res.json(cached);
+
       const result = await query(sql, [userId]);
+
+      await CacheService.set(cacheKey, result.rows, CACHE_TTL.SHORT);
       res.json(result.rows);
     } catch (error) {
       console.error(error);
@@ -272,6 +287,10 @@ export class OrderController {
             `,
         [order.buyer_id, orderId],
       );
+
+      // Invalidate Order Lists
+      await CacheService.deleteByPattern(`orders:${order.buyer_id}:*`);
+      await CacheService.deleteByPattern(`orders:${order.owner_id}:*`);
 
       res.json({ message: "Order delivered successfully" });
     } catch (error) {

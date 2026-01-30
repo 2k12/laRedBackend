@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { query } from "../config/db";
+import { CacheService, CACHE_TTL } from "../utils/cache";
+import crypto from "crypto";
 
 export class StoreController {
   static async getPublicProducts(req: Request, res: Response) {
@@ -18,6 +20,11 @@ export class StoreController {
       const storeId = req.query.storeId as string;
 
       const offset = (page - 1) * limit;
+
+      // Key generation for Redis
+      const cacheKey = `products:feed:${crypto.createHash("md5").update(JSON.stringify(req.query)).digest("hex")}`;
+      const cachedData = await CacheService.get(cacheKey);
+      if (cachedData) return res.json(cachedData);
 
       // Build Query
       let queryText = `
@@ -81,7 +88,7 @@ export class StoreController {
         result.rows.length > 0 ? parseInt(result.rows[0].total_count) : 0;
       const totalPages = Math.ceil(total / limit);
 
-      res.json({
+      const responseData = {
         data: result.rows.map((r) => {
           const { total_count, ...rest } = r;
           return rest;
@@ -92,7 +99,12 @@ export class StoreController {
           limit,
           totalPages,
         },
-      });
+      };
+
+      // Store in Cache
+      await CacheService.set(cacheKey, responseData, CACHE_TTL.SHORT);
+
+      res.json(responseData);
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: "Internal Server Error" });
@@ -102,6 +114,11 @@ export class StoreController {
   static async getProductById(req: Request, res: Response) {
     try {
       const { id } = req.params;
+      const context = req.query.context as string;
+
+      const cacheKey = `product:detail:${id}:${context || "default"}`;
+      const cachedProduct = await CacheService.get(cacheKey);
+      if (cachedProduct) return res.json(cachedProduct);
 
       // Get current product
       const result = await query(
@@ -122,11 +139,22 @@ export class StoreController {
 
       // Get navigation using Window Functions to guarantee exact match with Feed order
       // Feed Order: created_at DESC, id DESC
-      // LAG = Previous Row (Newer item in DESC list)
-      // LEAD = Next Row (Older item in DESC list)
 
-      const navResult = await query(
-        `
+      let navQuery = "";
+      if (context === "featured") {
+        navQuery = `
+                WITH sorted_ids AS (
+                    SELECT p.id, 
+                           LAG(p.id) OVER (ORDER BY pa.created_at DESC) as prev_id,
+                           LEAD(p.id) OVER (ORDER BY pa.created_at DESC) as next_id
+                    FROM products p
+                    JOIN product_ads pa ON p.id = pa.product_id
+                    WHERE p.stock > 0 AND pa.expires_at > CURRENT_TIMESTAMP
+                )
+                SELECT prev_id, next_id FROM sorted_ids WHERE id = $1
+            `;
+      } else {
+        navQuery = `
                 WITH sorted_ids AS (
                     SELECT id, 
                            LAG(id) OVER (ORDER BY created_at DESC, id DESC) as prev_id,
@@ -135,17 +163,22 @@ export class StoreController {
                     WHERE stock > 0
                 )
                 SELECT prev_id, next_id FROM sorted_ids WHERE id = $1
-            `,
-        [id],
-      );
+            `;
+      }
+
+      const navResult = await query(navQuery, [id]);
 
       const navData = navResult.rows[0] || {};
 
-      res.json({
+      const finalResponse = {
         ...product,
         prev_id: navData.prev_id || null,
         next_id: navData.next_id || null,
-      });
+      };
+
+      await CacheService.set(cacheKey, finalResponse, CACHE_TTL.MEDIUM);
+
+      res.json(finalResponse);
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: "Internal Server Error" });

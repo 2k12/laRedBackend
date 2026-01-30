@@ -20,6 +20,7 @@ app.use(requestLogger);
 // Auth Routes
 app.post("/api/auth/register", AuthController.register);
 app.post("/api/auth/login", AuthController.login);
+app.post("/api/auth/logout", authenticateToken, AuthController.logout);
 app.get("/api/users/me", authenticateToken, AuthController.me);
 app.put("/api/users/me", authenticateToken, AuthController.updateMe);
 app.put(
@@ -138,6 +139,36 @@ app.get(
 );
 app.post("/api/rewards/claim", authenticateToken, RewardController.claimReward);
 
+// Advertising & Ads Slide Routes
+import { AdController } from "./controllers/AdController";
+app.get("/api/ads/packages", authenticateToken, AdController.getPackages);
+app.post("/api/ads/purchase", authenticateToken, AdController.purchasePackage);
+app.get("/api/ads/featured", AdController.getFeaturedProducts);
+
+// Badge System Routes
+import { BadgeController } from "./controllers/BadgeController";
+app.get("/api/badges", authenticateToken, BadgeController.getAllBadges);
+app.get(
+  "/api/badges/user/:userId",
+  authenticateToken,
+  BadgeController.getUserBadges,
+);
+app.post(
+  "/api/badges/check",
+  authenticateToken,
+  BadgeController.checkAndAwardBadges,
+);
+app.post(
+  "/api/badges/award",
+  authenticateToken,
+  BadgeController.awardBadgeManually,
+);
+app.post(
+  "/api/badges/award-bulk",
+  authenticateToken,
+  BadgeController.awardBadgesBulk,
+);
+
 // User Management (Admin/System)
 import { UserController } from "./controllers/UserController";
 app.get("/api/admin/users", authenticateToken, UserController.listAllUsers);
@@ -145,6 +176,21 @@ app.post(
   "/api/admin/users/activate",
   authenticateToken,
   UserController.activateUsers,
+);
+app.post(
+  "/api/admin/users/toggle/:userId",
+  authenticateToken,
+  UserController.toggleUserStatus,
+);
+app.get(
+  "/api/admin/users/profile/:userId",
+  authenticateToken,
+  UserController.getUserProfile,
+);
+app.post(
+  "/api/admin/users/roles/:userId",
+  authenticateToken,
+  UserController.updateRoles,
 );
 
 app.get("/api/health", (req, res) => {

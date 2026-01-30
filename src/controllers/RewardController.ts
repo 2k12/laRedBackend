@@ -4,6 +4,7 @@ import { LedgerService } from "../services/LedgerService";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { BRANDING } from "../config/branding";
+import { CacheService, CACHE_TTL } from "../utils/cache";
 
 const ledgerService = new LedgerService();
 const TREASURY_WALLET_ID = "11111111-1111-1111-1111-111111111111";
@@ -68,6 +69,9 @@ export class RewardController {
         ],
       );
 
+      // Invalidate Cache
+      await CacheService.delete("rewards:events");
+
       res.status(201).json(result.rows[0]);
     } catch (error) {
       console.error("Create Event Error:", error);
@@ -93,6 +97,9 @@ export class RewardController {
       if (result.rows.length === 0)
         return res.status(404).json({ error: "Evento no encontrado" });
 
+      // Invalidate Cache
+      await CacheService.delete("rewards:events");
+
       res.json({
         message: is_active
           ? "Evento reactivado"
@@ -109,11 +116,17 @@ export class RewardController {
 
   static async getEvents(req: any, res: Response) {
     try {
+      const cacheKey = "rewards:events";
+      const cached = await CacheService.get(cacheKey);
+      if (cached) return res.json(cached);
+
       const result = await query(`
                 SELECT id, name, description, reward_amount, total_budget, remaining_budget, is_active, created_at, expires_at 
                 FROM reward_events 
                 ORDER BY created_at DESC
             `);
+
+      await CacheService.set(cacheKey, result.rows, CACHE_TTL.SHORT);
       res.json(result.rows);
     } catch (error) {
       console.error("Get Events Error:", error);
@@ -130,6 +143,10 @@ export class RewardController {
 
       const { id } = req.params;
       await query("DELETE FROM reward_events WHERE id = $1", [id]);
+
+      // Invalidate Cache
+      await CacheService.delete("rewards:events");
+
       res.json({ message: "Evento eliminado correctamente" });
     } catch (error) {
       console.error("Delete Event Error:", error);
@@ -333,6 +350,9 @@ export class RewardController {
           );
 
           await client.query("COMMIT");
+
+          // Invalidate Cache (Budget changed)
+          await CacheService.delete("rewards:events");
 
           res.json({
             success: true,
