@@ -6,20 +6,31 @@ import {
 import sharp from "sharp";
 import { v4 as uuidv4 } from "uuid";
 
-const ACCOUNT_ID = process.env.R2_ACCOUNT_ID || "";
+const cleanEnv = (key: string, fallback: string = ""): string => {
+  const val = process.env[key];
+  if (!val) return fallback;
+  return val.trim().replace(/^["']|["']$/g, "");
+};
 
-const ACCESS_KEY_ID =
-  process.env.AWS_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID || "";
-const SECRET_ACCESS_KEY =
-  process.env.AWS_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY || "";
-const BUCKET_NAME =
-  process.env.AWS_BUCKET ||
-  process.env.R2_BUCKET_NAME ||
-  "universitystore-images";
-const PUBLIC_URL = process.env.AWS_URL || process.env.R2_PUBLIC_URL || "";
-const ENDPOINT =
-  process.env.AWS_ENDPOINT || `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`;
-const REGION = process.env.AWS_DEFAULT_REGION || "auto";
+const ACCOUNT_ID = cleanEnv("R2_ACCOUNT_ID");
+const ACCESS_KEY_ID = cleanEnv(
+  "AWS_ACCESS_KEY_ID",
+  cleanEnv("R2_ACCESS_KEY_ID"),
+);
+const SECRET_ACCESS_KEY = cleanEnv(
+  "AWS_SECRET_ACCESS_KEY",
+  cleanEnv("R2_SECRET_ACCESS_KEY"),
+);
+const BUCKET_NAME = cleanEnv(
+  "AWS_BUCKET",
+  cleanEnv("R2_BUCKET_NAME", "universitystore-images"),
+);
+const PUBLIC_URL = cleanEnv("AWS_URL", cleanEnv("R2_PUBLIC_URL"));
+const ENDPOINT = cleanEnv(
+  "AWS_ENDPOINT",
+  `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`,
+);
+const REGION = cleanEnv("AWS_DEFAULT_REGION", "auto");
 
 export class UploadService {
   private static s3Client = new S3Client({
