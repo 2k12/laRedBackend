@@ -18,8 +18,14 @@ export class RewardController {
         return res.status(403).json({ error: "Require Admin Role" });
       }
 
-      const { name, description, reward_amount, total_budget, expires_at } =
-        req.body;
+      const {
+        name,
+        description,
+        reward_amount,
+        total_budget,
+        expires_at,
+        qr_refresh_rate = 60,
+      } = req.body;
 
       if (!name || !reward_amount || !total_budget) {
         return res.status(400).json({
@@ -57,8 +63,8 @@ export class RewardController {
         Math.random().toString(36).substring(2, 15);
 
       const result = await query(
-        `INSERT INTO reward_events (name, description, reward_amount, total_budget, remaining_budget, secret_key, expires_at)
-                 VALUES ($1, $2, $3, $4, $4, $5, $6) RETURNING *`,
+        `INSERT INTO reward_events (name, description, reward_amount, total_budget, remaining_budget, secret_key, expires_at, qr_refresh_rate)
+                 VALUES ($1, $2, $3, $4, $4, $5, $6, $7) RETURNING *`,
         [
           name,
           description,
@@ -66,6 +72,7 @@ export class RewardController {
           total_budget,
           secret_key,
           expires_at,
+          parseInt(qr_refresh_rate),
         ],
       );
 
@@ -121,7 +128,7 @@ export class RewardController {
       if (cached) return res.json(cached);
 
       const result = await query(`
-                SELECT id, name, description, reward_amount, total_budget, remaining_budget, is_active, created_at, expires_at 
+                SELECT id, name, description, reward_amount, total_budget, remaining_budget, is_active, created_at, expires_at, qr_refresh_rate 
                 FROM reward_events 
                 ORDER BY created_at DESC
             `);
@@ -169,14 +176,16 @@ export class RewardController {
       if (!event.is_active)
         return res.status(400).json({ error: "El evento no está activo" });
 
-      // Generate a token that expires in 60 seconds
+      const expiresIn = event.qr_refresh_rate || 60;
+
+      // Generate a token that expires in qr_refresh_rate (default 60s)
       const token = jwt.sign(
         { eventId: event.id, iat: Math.floor(Date.now() / 1000) },
         event.secret_key,
-        { expiresIn: "60s" },
+        { expiresIn: `${expiresIn}s` },
       );
 
-      res.json({ token, expires_in: 60 });
+      res.json({ token, expires_in: expiresIn });
     } catch (error) {
       console.error("Generate Token Error:", error);
       res.status(500).json({ error: "Error al generar el token" });

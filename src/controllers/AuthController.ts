@@ -89,7 +89,7 @@ export class AuthController {
 
     try {
       const userRes = await query(
-        "SELECT id, name, email, roles, status FROM users WHERE id = $1",
+        "SELECT id, name, email, roles, status, utn_id FROM users WHERE id = $1",
         [userId],
       );
       if (userRes.rows.length === 0)
