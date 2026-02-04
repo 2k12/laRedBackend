@@ -6,44 +6,37 @@ dotenv.config();
 const redisClient = createClient({
   url: process.env.REDIS_URL || "redis://localhost:6379",
   socket: {
-    connectTimeout: 5000, // 5 seconds timeout
+    connectTimeout: 1000, // 1 second timeout for initial connection
     reconnectStrategy: (retries) => {
-      if (retries > 10) {
-        console.error(
-          "Redis: Max retries reached. Stopping reconnection attempts.",
-        );
-        return false; // Stop retrying
-      }
-      return Math.min(retries * 100, 3000); // Backoff strategy
+      // Very conservative reconnection
+      if (retries > 5) return false;
+      return 1000;
     },
   },
 });
 
+// CRITICAL: Error listener must be defined BEFORE any connection attempt
 redisClient.on("error", (err) => {
-  // Only log detailed error if it's not a connection timeout spam
   if (err.name === "ConnectionTimeoutError") {
-    console.error("Redis Status: Connection Timeout (Local/Down)");
+    // Silent in logs to avoid cluttering Railway logs if Redis is missing
   } else {
-    console.error("Redis Status: Error", err.message);
+    console.warn("Redis Info:", err.message);
   }
 });
 
 redisClient.on("connect", () => console.log("Redis Status: Connected"));
 redisClient.on("ready", () => console.log("Redis Status: Ready"));
 
-const connectRedis = async () => {
+// Background connection attempt
+(async () => {
   try {
-    if (!redisClient.isOpen) {
-      await redisClient.connect();
-    }
-  } catch (error) {
-    console.warn(
-      "Redis Status: Could not establish initial connection. Cache will be disabled.",
-    );
+    // We don't await this to avoid blocking the main thread/event loop during startup
+    redisClient.connect().catch(() => {
+      // Silently catch the initial connection failure
+    });
+  } catch (e) {
+    // Ignore top-level sync errors
   }
-};
-
-// Start connection attempt without blocking or crashing
-connectRedis();
+})();
 
 export default redisClient;
