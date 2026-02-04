@@ -15,6 +15,7 @@ export class ProductController {
         store_id,
         variants,
         condition,
+        currency = "COINS", // Default to COINS
       } = req.body;
       const userId = req.user.id || req.user.userId;
 
@@ -35,37 +36,39 @@ export class ProductController {
       }
 
       // 2. ECONOMY VALIDATION: PRICE CAP
-      // ... (rest of logic stays same)
-      const catRes = await query(
-        "SELECT price_factor FROM categories WHERE slug = $1",
-        [category_slug],
-      );
-      if (catRes.rows.length === 0)
-        return res.status(400).json({ error: "Invalid Category" });
-      const factor = parseFloat(catRes.rows[0].price_factor);
+      // SKIP IF CURRENCY IS MONEY
+      if (currency !== "MONEY") {
+        const catRes = await query(
+          "SELECT price_factor FROM categories WHERE slug = $1",
+          [category_slug],
+        );
+        if (catRes.rows.length === 0)
+          return res.status(400).json({ error: "Invalid Category" });
+        const factor = parseFloat(catRes.rows[0].price_factor);
 
-      const coinsRes = await query(
-        "SELECT COUNT(*) as count FROM coins WHERE status = 'ACTIVE'",
-      );
-      const totalCoins = parseInt(coinsRes.rows[0].count);
+        const coinsRes = await query(
+          "SELECT COUNT(*) as count FROM coins WHERE status = 'ACTIVE'",
+        );
+        const totalCoins = parseInt(coinsRes.rows[0].count);
 
-      const usersRes = await query(
-        "SELECT COUNT(*) as count FROM users WHERE email != 'system@treasury'",
-      );
-      const totalUsers = parseInt(usersRes.rows[0].count) || 1;
+        const usersRes = await query(
+          "SELECT COUNT(*) as count FROM users WHERE email != 'system@treasury'",
+        );
+        const totalUsers = parseInt(usersRes.rows[0].count) || 1;
 
-      const averageWealth = totalCoins / totalUsers;
-      const maxAllowedPrice = averageWealth * factor;
+        const averageWealth = totalCoins / totalUsers;
+        const maxAllowedPrice = averageWealth * factor;
 
-      if (price > maxAllowedPrice) {
-        return res.status(400).json({
-          error: `Price Check Failed: El precio ${price} PL excede el límite permitido para esta categoría.`,
-          details: {
-            max_allowed: Math.floor(maxAllowedPrice),
-            average_wealth: Math.floor(averageWealth),
-            category_factor: factor,
-          },
-        });
+        if (price > maxAllowedPrice) {
+          return res.status(400).json({
+            error: `Price Check Failed: El precio ${price} PL excede el límite permitido para esta categoría.`,
+            details: {
+              max_allowed: Math.floor(maxAllowedPrice),
+              average_wealth: Math.floor(averageWealth),
+              category_factor: factor,
+            },
+          });
+        }
       }
 
       // 3. Generate ID and SKU
@@ -76,8 +79,8 @@ export class ProductController {
       // 4. Insert Product
       const result = await query(
         `
-                INSERT INTO products (id, store_id, name, description, price, stock, category, sku, condition, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+                INSERT INTO products (id, store_id, name, description, price, stock, category, sku, condition, currency, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
                 RETURNING *
             `,
         [
@@ -90,6 +93,7 @@ export class ProductController {
           category_slug,
           sku,
           condition || "NEW",
+          currency,
         ],
       );
 
@@ -281,7 +285,8 @@ export class ProductController {
   static async updateProduct(req: any, res: Response) {
     try {
       const { id } = req.params;
-      const { name, description, price, stock, category, condition } = req.body;
+      const { name, description, price, stock, category, condition, currency } =
+        req.body;
       const userId = req.user.id || req.user.userId;
       const userRoles = req.user?.roles || [];
       const isAdmin =
@@ -308,8 +313,8 @@ export class ProductController {
       const result = await query(
         `
                 UPDATE products 
-                SET name = $1, description = $2, price = $3, stock = $4, category = $5, condition = $6
-                WHERE id = $7 RETURNING *
+                SET name = $1, description = $2, price = $3, stock = $4, category = $5, condition = $6, currency = COALESCE($7, currency)
+                WHERE id = $8 RETURNING *
             `,
         [
           name,
@@ -318,6 +323,7 @@ export class ProductController {
           parseInt(stock),
           category,
           condition,
+          currency,
           id,
         ],
       );

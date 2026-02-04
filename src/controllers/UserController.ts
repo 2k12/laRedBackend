@@ -121,7 +121,7 @@ export class UserController {
       if (cached) return res.json(cached);
 
       const userRes = await query(
-        "SELECT id, name, email, roles, status, created_at FROM users WHERE id = $1",
+        "SELECT id, name, email, roles, status, created_at, utn_id FROM users WHERE id = $1",
         [userId],
       );
       if (userRes.rows.length === 0)
@@ -172,6 +172,53 @@ export class UserController {
     } catch (error) {
       console.error("Update Roles Error:", error);
       res.status(500).json({ error: "Error al actualizar roles" });
+    }
+  }
+
+  static async linkUtnId(req: any, res: Response) {
+    try {
+      const userId = req.user?.id;
+      const { utn_id } = req.body;
+
+      if (!userId) return res.status(401).json({ error: "No autorizado" });
+      if (!utn_id)
+        return res
+          .status(400)
+          .json({ error: "Se requiere UTN ID (Código de Carnet)" });
+
+      // Check if ID is already taken
+      const existing = await query("SELECT id FROM users WHERE utn_id = $1", [
+        utn_id,
+      ]);
+      if (existing.rows.length > 0) {
+        return res
+          .status(409)
+          .json({ error: "Este carnet ya está vinculado a otra cuenta." });
+      }
+
+      // Link ID to user
+      await query("UPDATE users SET utn_id = $1 WHERE id = $2", [
+        utn_id,
+        userId,
+      ]);
+
+      // Invalidate profiles
+      await CacheService.delete(`user:profile:${userId}`);
+      await CacheService.delete("users:list");
+
+      // Verify success/return updated user
+      const userRes = await query(
+        "SELECT id, name, email, roles, utn_id FROM users WHERE id = $1",
+        [userId],
+      );
+
+      res.json({
+        message: "Carnet vinculado exitosamente",
+        user: userRes.rows[0],
+      });
+    } catch (error) {
+      console.error("Link UTN ID Error:", error);
+      res.status(500).json({ error: "Error al vincular carnet" });
     }
   }
 }

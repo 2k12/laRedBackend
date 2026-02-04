@@ -171,6 +171,7 @@ app.post(
 
 // User Management (Admin/System)
 import { UserController } from "./controllers/UserController";
+app.post("/api/users/link-utnid", authenticateToken, UserController.linkUtnId);
 app.get("/api/admin/users", authenticateToken, UserController.listAllUsers);
 app.post(
   "/api/admin/users/activate",

@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS products (
   stock INTEGER DEFAULT 0,
   sku VARCHAR(100),
   image_url TEXT,
+  currency VARCHAR(20) DEFAULT 'COINS' CHECK (currency IN ('COINS', 'MONEY')),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 -- Orders Table (Purchase Contract)
