@@ -7,7 +7,12 @@ export const CACHE_TTL = {
 };
 
 export class CacheService {
+  private static isRedisReady(): boolean {
+    return redisClient.isOpen && redisClient.isReady;
+  }
+
   static async get<T>(key: string): Promise<T | null> {
+    if (!this.isRedisReady()) return null;
     try {
       const data = await redisClient.get(key);
       return data ? JSON.parse(data) : null;
@@ -22,6 +27,7 @@ export class CacheService {
     value: any,
     ttl: number = CACHE_TTL.SHORT,
   ): Promise<void> {
+    if (!this.isRedisReady()) return;
     try {
       await redisClient.set(key, JSON.stringify(value), {
         EX: ttl,
@@ -32,6 +38,7 @@ export class CacheService {
   }
 
   static async delete(key: string): Promise<void> {
+    if (!this.isRedisReady()) return;
     try {
       await redisClient.del(key);
     } catch (error) {
@@ -40,6 +47,7 @@ export class CacheService {
   }
 
   static async deleteByPattern(pattern: string): Promise<void> {
+    if (!this.isRedisReady()) return;
     try {
       const keys = await redisClient.keys(pattern);
       if (keys.length > 0) {
