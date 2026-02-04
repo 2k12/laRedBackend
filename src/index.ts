@@ -8,8 +8,11 @@ import { requestLogger } from "./middleware/logger";
 
 dotenv.config();
 
+console.log("Starting server initialization...");
+console.log("Environment:", process.env.NODE_ENV);
+
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = Number(process.env.PORT) || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -210,6 +213,8 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", service: "university-store-api" });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server fully initialized and listening on port ${PORT}`);
+  console.log(`Local URL: http://0.0.0.0:${PORT}`);
+  console.log(`Health Check: http://0.0.0.0:${PORT}/api/health`);
 });

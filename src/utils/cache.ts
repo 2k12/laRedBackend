@@ -1,4 +1,4 @@
-import redisClient from "../config/redis";
+import redisClient, { ensureRedisConnection } from "../config/redis";
 
 export const CACHE_TTL = {
   SHORT: 300, // 5 minutos (Feed, Eventos activos)
@@ -12,6 +12,7 @@ export class CacheService {
   }
 
   static async get<T>(key: string): Promise<T | null> {
+    await ensureRedisConnection();
     if (!this.isRedisReady()) return null;
     try {
       const data = await redisClient.get(key);
@@ -27,6 +28,7 @@ export class CacheService {
     value: any,
     ttl: number = CACHE_TTL.SHORT,
   ): Promise<void> {
+    await ensureRedisConnection();
     if (!this.isRedisReady()) return;
     try {
       await redisClient.set(key, JSON.stringify(value), {
@@ -38,6 +40,7 @@ export class CacheService {
   }
 
   static async delete(key: string): Promise<void> {
+    await ensureRedisConnection();
     if (!this.isRedisReady()) return;
     try {
       await redisClient.del(key);
@@ -47,6 +50,7 @@ export class CacheService {
   }
 
   static async deleteByPattern(pattern: string): Promise<void> {
+    await ensureRedisConnection();
     if (!this.isRedisReady()) return;
     try {
       const keys = await redisClient.keys(pattern);
