@@ -58,7 +58,7 @@ export class AdController {
         await query("ROLLBACK");
         return res
           .status(400)
-          .json({ error: "Este producto ya tiene una promoción activa." });
+          .json({ error: "Este drop ya tiene una promoción activa." });
       }
 
       // 2. Get package info

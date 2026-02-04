@@ -18,6 +18,7 @@ export class StoreController {
       const status = req.query.status as string; // 'new' | 'used' | 'all'
       const category = req.query.category as string;
       const storeId = req.query.storeId as string;
+      const currency = req.query.currency as string; // 'COINS' | 'MONEY'
 
       const offset = (page - 1) * limit;
 
@@ -64,6 +65,11 @@ export class StoreController {
       if (storeId) {
         queryParams.push(storeId);
         queryText += ` AND p.store_id = $${queryParams.length}`;
+      }
+
+      if (currency) {
+        queryParams.push(currency);
+        queryText += ` AND p.currency = $${queryParams.length}`;
       }
 
       const countQueryText =

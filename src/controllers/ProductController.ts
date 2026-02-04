@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { query } from "../config/db";
 import { v4 as uuidv4 } from "uuid";
 import { CacheService } from "../utils/cache";
+import { UploadService } from "../services/UploadService";
 
 export class ProductController {
   static async createProduct(req: any, res: Response) {
@@ -16,6 +17,7 @@ export class ProductController {
         variants,
         condition,
         currency = "COINS", // Default to COINS
+        images = [],
       } = req.body;
       const userId = req.user.id || req.user.userId;
 
@@ -79,8 +81,8 @@ export class ProductController {
       // 4. Insert Product
       const result = await query(
         `
-                INSERT INTO products (id, store_id, name, description, price, stock, category, sku, condition, currency, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+                INSERT INTO products (id, store_id, name, description, price, stock, category, sku, condition, currency, images, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
                 RETURNING *
             `,
         [
@@ -94,6 +96,7 @@ export class ProductController {
           sku,
           condition || "NEW",
           currency,
+          images,
         ],
       );
 
@@ -310,11 +313,27 @@ export class ProductController {
       }
 
       // 2. Perform Update
+
+      // Calculate missing images to delete from R2
+      const oldImages: string[] = prodRes.rows[0].images || [];
+      const newImages: string[] = req.body.images || oldImages;
+
+      const imagesToDelete = oldImages.filter(
+        (img) => !newImages.includes(img),
+      );
+
+      // Execute cleanup in background
+      if (imagesToDelete.length > 0) {
+        Promise.all(
+          imagesToDelete.map((img) => UploadService.deleteImage(img)),
+        ).catch(console.error);
+      }
+
       const result = await query(
         `
                 UPDATE products 
-                SET name = $1, description = $2, price = $3, stock = $4, category = $5, condition = $6, currency = COALESCE($7, currency)
-                WHERE id = $8 RETURNING *
+                SET name = $1, description = $2, price = $3, stock = $4, category = $5, condition = $6, currency = COALESCE($7, currency), images = COALESCE($8, images)
+                WHERE id = $9 RETURNING *
             `,
         [
           name,
@@ -324,6 +343,7 @@ export class ProductController {
           category,
           condition,
           currency,
+          req.body.images, // Can be null/undefined if not updating
           id,
         ],
       );
@@ -369,6 +389,14 @@ export class ProductController {
       // In setup we usually have cascades, but safer to delete variants.
       await query("DELETE FROM product_variants WHERE product_id = $1", [id]);
       await query("DELETE FROM products WHERE id = $1", [id]);
+
+      // Delete images from R2
+      const images: string[] = prodRes.rows[0].images || [];
+      if (images.length > 0) {
+        Promise.all(images.map((img) => UploadService.deleteImage(img))).catch(
+          console.error,
+        );
+      }
 
       // Invalidate Cache
       await CacheService.deleteByPattern("products:feed:*");

@@ -89,7 +89,7 @@ export class AuthController {
 
     try {
       const userRes = await query(
-        "SELECT id, name, email, roles, status, utn_id FROM users WHERE id = $1",
+        "SELECT id, name, email, roles, status, utn_id, phone FROM users WHERE id = $1",
         [userId],
       );
       if (userRes.rows.length === 0)
@@ -147,6 +147,10 @@ export class AuthController {
       if (email) {
         fields.push(`email = $${idx++}`);
         values.push(email);
+      }
+      if (phone) {
+        fields.push(`phone = $${idx++}`);
+        values.push(phone);
       }
       // Phone column doesn't exist yet in DB schema shown, assuming we might need to add it or store in separate profile table.
       // For now, let's stick to name/email or add phone to users table.

@@ -5,6 +5,7 @@ import { AuthController } from "./controllers/AuthController";
 import { RewardController } from "./controllers/RewardController";
 import { authenticateToken } from "./middleware/auth";
 import { requestLogger } from "./middleware/logger";
+import { rateLimit } from "./middleware/rateLimit";
 
 dotenv.config();
 
@@ -18,8 +19,8 @@ app.use(express.json());
 app.use(requestLogger);
 
 // Auth Routes
-app.post("/api/auth/register", AuthController.register);
-app.post("/api/auth/login", AuthController.login);
+app.post("/api/auth/register", rateLimit(300, 5), AuthController.register); // 5 attempts per 5 mins
+app.post("/api/auth/login", rateLimit(60, 10), AuthController.login); // 10 attempts per minute
 app.post("/api/auth/logout", authenticateToken, AuthController.logout);
 app.get("/api/users/me", authenticateToken, AuthController.me);
 app.put("/api/users/me", authenticateToken, AuthController.updateMe);
@@ -192,6 +193,18 @@ app.post(
   "/api/admin/users/roles/:userId",
   authenticateToken,
   UserController.updateRoles,
+);
+
+// Upload Routes
+import {
+  UploadController,
+  uploadMiddleware,
+} from "./controllers/UploadController";
+app.post(
+  "/api/upload/image",
+  authenticateToken,
+  uploadMiddleware.single("image"),
+  UploadController.uploadImage,
 );
 
 app.get("/api/health", (req, res) => {
