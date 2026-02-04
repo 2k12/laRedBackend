@@ -6,19 +6,28 @@ import {
 import sharp from "sharp";
 import { v4 as uuidv4 } from "uuid";
 
-const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || "";
-const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || "";
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || "";
-const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || "universitystore-images";
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || "";
+const ACCOUNT_ID = process.env.R2_ACCOUNT_ID || "";
+
+const ACCESS_KEY_ID =
+  process.env.AWS_ACCESS_KEY_ID || process.env.R2_ACCESS_KEY_ID || "";
+const SECRET_ACCESS_KEY =
+  process.env.AWS_SECRET_ACCESS_KEY || process.env.R2_SECRET_ACCESS_KEY || "";
+const BUCKET_NAME =
+  process.env.AWS_BUCKET ||
+  process.env.R2_BUCKET_NAME ||
+  "universitystore-images";
+const PUBLIC_URL = process.env.AWS_URL || process.env.R2_PUBLIC_URL || "";
+const ENDPOINT =
+  process.env.AWS_ENDPOINT || `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`;
+const REGION = process.env.AWS_DEFAULT_REGION || "auto";
 
 export class UploadService {
   private static s3Client = new S3Client({
-    region: "auto",
-    endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    region: REGION,
+    endpoint: ENDPOINT,
     credentials: {
-      accessKeyId: R2_ACCESS_KEY_ID,
-      secretAccessKey: R2_SECRET_ACCESS_KEY,
+      accessKeyId: ACCESS_KEY_ID,
+      secretAccessKey: SECRET_ACCESS_KEY,
     },
   });
 
@@ -42,7 +51,7 @@ export class UploadService {
     // Upload to R2
     await this.s3Client.send(
       new PutObjectCommand({
-        Bucket: R2_BUCKET_NAME,
+        Bucket: BUCKET_NAME,
         Key: filename,
         Body: optimizedBuffer,
         ContentType: "image/webp",
@@ -50,7 +59,7 @@ export class UploadService {
       }),
     );
 
-    const url = `${R2_PUBLIC_URL}/${filename}`;
+    const url = `${PUBLIC_URL}/${filename}`;
     return { url, filename };
   }
 
@@ -58,8 +67,8 @@ export class UploadService {
     try {
       let key = urlOrKey;
       // If it's a full URL, extract the key
-      if (urlOrKey.startsWith(R2_PUBLIC_URL)) {
-        key = urlOrKey.replace(`${R2_PUBLIC_URL}/`, "");
+      if (urlOrKey.startsWith(PUBLIC_URL)) {
+        key = urlOrKey.replace(`${PUBLIC_URL}/`, "");
       }
       // If it's a full URL from another domain (unlikely but possible), try to keep just the path
       // For now, assume it matches our public URL structure.
@@ -68,7 +77,7 @@ export class UploadService {
 
       await this.s3Client.send(
         new DeleteObjectCommand({
-          Bucket: R2_BUCKET_NAME,
+          Bucket: BUCKET_NAME,
           Key: key,
         }),
       );
