@@ -40,6 +40,7 @@ import { CategoryController } from "./controllers/CategoryController";
 app.get("/api/store/products/public", StoreController.getPublicProducts);
 app.get("/api/store/products/:id", StoreController.getProductById);
 app.get("/api/stores/public", StoreController.getPublicStores);
+app.get("/api/public/stores/:id", StoreController.getPublicStoreById);
 
 // Product Management & Economy Checks
 app.post("/api/products", authenticateToken, ProductController.createProduct);

@@ -3,6 +3,8 @@ import { query } from "../config/db";
 import { CacheService, CACHE_TTL } from "../utils/cache";
 import crypto from "crypto";
 
+import { UploadService } from "../services/UploadService";
+
 export class StoreController {
   static async getPublicProducts(req: Request, res: Response) {
     try {
@@ -277,19 +279,55 @@ export class StoreController {
         return res.status(403).json({ error: "Not authorized" });
       }
 
-      let queryStr = `UPDATE stores SET name = $1, description = $2`;
-      const params = [name, description];
+      let queryStr = `UPDATE stores SET name = $1, description = $2, image_url = $3, banner_url = $4`;
+      const params = [
+        name,
+        description,
+        req.body.image_url,
+        req.body.banner_url,
+      ];
 
       if (userRoles.includes("ADMIN") && owner_id) {
-        queryStr += `, owner_id = $3 WHERE id = $4`;
+        queryStr += `, owner_id = $5 WHERE id = $6`;
         params.push(owner_id, id);
       } else {
-        queryStr += ` WHERE id = $3`;
+        queryStr += ` WHERE id = $5`;
         params.push(id);
       }
 
       const result = await query(queryStr + " RETURNING *", params);
       res.json(result.rows[0]);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
+
+  // Get Public Store Details (Branding)
+  static async getPublicStoreById(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const result = await query(
+        `SELECT id, name, description, image_url, banner_url, owner_id FROM stores WHERE id = $1`,
+        [id],
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: "Store not found" });
+      }
+
+      const store = result.rows[0];
+
+      // Get Stats
+      const stats = await query(
+        `SELECT COUNT(*) as product_count FROM products WHERE store_id = $1 AND stock > 0`,
+        [id],
+      );
+
+      res.json({
+        ...store,
+        product_count: parseInt(stats.rows[0].product_count),
+      });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: "Internal Server Error" });
@@ -316,6 +354,13 @@ export class StoreController {
       ) {
         return res.status(403).json({ error: "Not authorized" });
       }
+
+      // Delete images
+      const store = storeCheck.rows[0];
+      if (store.image_url)
+        UploadService.deleteImage(store.image_url).catch(console.error);
+      if (store.banner_url)
+        UploadService.deleteImage(store.banner_url).catch(console.error);
 
       await query(`DELETE FROM stores WHERE id = $1`, [id]);
       res.json({ message: "Store deleted" });

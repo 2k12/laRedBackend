@@ -196,9 +196,21 @@ export class UserController {
           .json({ error: "Este carnet ya está vinculado a otra cuenta." });
       }
 
-      // Link ID to user
-      await query("UPDATE users SET utn_id = $1 WHERE id = $2", [
+      // Fetch current roles to append SELLER
+      const currentUserRes = await query(
+        "SELECT roles FROM users WHERE id = $1",
+        [userId],
+      );
+      const currentRoles = currentUserRes.rows[0]?.roles || [];
+
+      if (!currentRoles.includes("SELLER")) {
+        currentRoles.push("SELLER");
+      }
+
+      // Link ID to user and update roles
+      await query("UPDATE users SET utn_id = $1, roles = $2 WHERE id = $3", [
         utn_id,
+        JSON.stringify(currentRoles),
         userId,
       ]);
 
