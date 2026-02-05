@@ -3,6 +3,7 @@ import { query } from "../config/db";
 import { v4 as uuidv4 } from "uuid";
 import { CacheService } from "../utils/cache";
 import { UploadService } from "../services/UploadService";
+import { isWithinCampus } from "../config/geofence";
 
 export class ProductController {
   static async createProduct(req: any, res: Response) {
@@ -18,6 +19,11 @@ export class ProductController {
         condition,
         currency = "COINS", // Default to COINS
         images = [],
+        is_ghost_drop,
+        ghost_lat,
+        ghost_lng,
+        ghost_radius,
+        ghost_clue,
       } = req.body;
       const userId = req.user.id || req.user.userId;
 
@@ -35,6 +41,25 @@ export class ProductController {
 
       if (storeCheck.rows[0].owner_id !== userId && !isAdmin) {
         return res.status(403).json({ error: "Not authorized" });
+      }
+
+      // 1.5. GEOFENCE VALIDATION FOR GHOST DROPS
+      if (is_ghost_drop) {
+        const lat = parseFloat(ghost_lat);
+        const lng = parseFloat(ghost_lng);
+
+        if (isNaN(lat) || isNaN(lng)) {
+          return res
+            .status(400)
+            .json({ error: "Coordenadas inválidas para Ghost Drop" });
+        }
+
+        if (!isWithinCampus(lat, lng)) {
+          return res.status(400).json({
+            error:
+              "Ubicación fuera del campus permitido. Los Ghost Drops deben crearse dentro del área universitaria.",
+          });
+        }
       }
 
       // 2. ECONOMY VALIDATION: PRICE CAP
@@ -81,8 +106,8 @@ export class ProductController {
       // 4. Insert Product
       const result = await query(
         `
-                INSERT INTO products (id, store_id, name, description, price, stock, category, sku, condition, currency, images, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+                INSERT INTO products (id, store_id, name, description, price, stock, category, sku, condition, currency, images, created_at, is_ghost_drop, ghost_lat, ghost_lng, ghost_radius, ghost_clue)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15, $16)
                 RETURNING *
             `,
         [
@@ -97,6 +122,11 @@ export class ProductController {
           condition || "NEW",
           currency,
           images,
+          req.body.is_ghost_drop || false,
+          req.body.ghost_lat || null,
+          req.body.ghost_lng || null,
+          req.body.ghost_radius || 50,
+          req.body.ghost_clue || null,
         ],
       );
 

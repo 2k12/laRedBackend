@@ -19,6 +19,7 @@ export class StoreController {
       const category = req.query.category as string;
       const storeId = req.query.storeId as string;
       const currency = req.query.currency as string; // 'COINS' | 'MONEY'
+      const ghost = req.query.ghost === "true";
 
       const offset = (page - 1) * limit;
 
@@ -70,6 +71,10 @@ export class StoreController {
       if (currency) {
         queryParams.push(currency);
         queryText += ` AND p.currency = $${queryParams.length}`;
+      }
+
+      if (ghost) {
+        queryText += ` AND p.is_ghost_drop = true`;
       }
 
       const countQueryText =

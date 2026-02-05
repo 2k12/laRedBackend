@@ -88,6 +88,11 @@ CREATE TABLE IF NOT EXISTS products (
   sku VARCHAR(100),
   image_url TEXT,
   currency VARCHAR(20) DEFAULT 'COINS' CHECK (currency IN ('COINS', 'MONEY')),
+  is_ghost_drop BOOLEAN DEFAULT FALSE,
+  ghost_lat DECIMAL(10, 8),
+  ghost_lng DECIMAL(11, 8),
+  ghost_radius INTEGER DEFAULT 50,
+  ghost_clue TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 -- Orders Table (Purchase Contract)

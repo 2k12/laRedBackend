@@ -213,6 +213,10 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok", service: "university-store-api" });
 });
 
+// Config Routes
+import { ConfigController } from "./controllers/ConfigController";
+app.get("/api/config/geofence", ConfigController.getGeofence);
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server fully initialized and listening on port ${PORT}`);
   console.log(`Local URL: http://0.0.0.0:${PORT}`);
