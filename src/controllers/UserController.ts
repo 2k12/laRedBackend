@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { query } from "../config/db";
 
 import { CacheService, CACHE_TTL } from "../utils/cache";
+import { BadgeService } from "../services/BadgeService";
 
 export class UserController {
   static async listAllUsers(req: any, res: Response) {
@@ -223,6 +224,9 @@ export class UserController {
         "SELECT id, name, email, roles, utn_id FROM users WHERE id = $1",
         [userId],
       );
+
+      // Trigger Badge Evaluation (For 'Validado' badge)
+      await BadgeService.evaluateBadges(userId);
 
       res.json({
         message: "Carnet vinculado exitosamente",

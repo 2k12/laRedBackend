@@ -194,17 +194,26 @@ export class AuthController {
       // 3. Create User (Standard role USER, Status INACTIVE)
       const result = await query(
         "INSERT INTO users (name, email, password_hash, roles, status) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, roles, status",
-        [name, email, passwordHash, ["USER"], "INACTIVE"],
+        [name, email, passwordHash, ["USER"], "ACTIVE"],
       );
       const newUser = result.rows[0];
 
       // 4. Create Wallet automatically
       await ledgerService.createWallet(newUser.id);
 
+      // 5. Generate Token for Auto-Login
+      const token = jwt.sign(
+        { id: newUser.id, roles: newUser.roles },
+        JWT_SECRET,
+        {
+          expiresIn: "24h",
+        },
+      );
+
       res.status(201).json({
-        message:
-          "Registro exitoso. Tu cuenta está pendiente de activación por un administrador del sistema.",
+        message: "Registro exitoso. Bienvenido a University Store.",
         user: newUser,
+        token, // Return token for auto-login
       });
     } catch (error) {
       console.error("Register Error:", error);

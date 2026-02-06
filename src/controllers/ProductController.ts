@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { CacheService } from "../utils/cache";
 import { UploadService } from "../services/UploadService";
 import { isWithinCampus } from "../config/geofence";
+import { BadgeService } from "../services/BadgeService";
 
 export class ProductController {
   static async createProduct(req: any, res: Response) {
@@ -153,6 +154,9 @@ export class ProductController {
 
       // Invalidate Cache
       await CacheService.deleteByPattern("products:feed:*");
+
+      // Trigger Badge Evaluation (ITEM_COUNT)
+      BadgeService.evaluateBadges(userId).catch(console.error);
 
       res.status(201).json(product);
     } catch (error) {
@@ -431,6 +435,11 @@ export class ProductController {
       // Invalidate Cache
       await CacheService.deleteByPattern("products:feed:*");
       await CacheService.deleteByPattern(`product:detail:${id}:*`);
+
+      // Trigger Badge Evaluation (ITEM_COUNT)
+      BadgeService.evaluateBadges(prodRes.rows[0].owner_id || userId).catch(
+        console.error,
+      );
 
       res.json({ message: "Product deleted successfully" });
     } catch (error) {

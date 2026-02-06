@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { query } from "../config/db";
 import { v4 as uuidv4 } from "uuid";
 import { CacheService, CACHE_TTL } from "../utils/cache";
+import { BadgeService } from "../services/BadgeService";
 
 export class OrderController {
   // --- ATOMIC PURCHASE TRANSACTION ("QUANTUM HOLD") ---
@@ -164,8 +165,6 @@ export class OrderController {
       // Commit
       await query("COMMIT");
 
-      // Format WhatsApp Link
-      // https://wa.me/5211234567890?text=Hola...
       let whatsappUrl = null;
       if (product.seller_phone) {
         const phone = product.seller_phone.replace(/\D/g, "");
@@ -181,6 +180,13 @@ export class OrderController {
       // Invalidate Order Lists (Buyer/Seller)
       await CacheService.deleteByPattern(`orders:${buyerId}:*`);
       await CacheService.deleteByPattern(`orders:${product.owner_id}:*`);
+
+      // --- BADGE TRIGGER ---
+      // Trigger evaluation for Buyer and Seller (Balance changed)
+      Promise.all([
+        BadgeService.evaluateBadges(buyerId),
+        BadgeService.evaluateBadges(product.owner_id),
+      ]).catch(console.error);
 
       res.status(201).json({
         message: "Purchase Successful",
@@ -291,6 +297,11 @@ export class OrderController {
       // Invalidate Order Lists
       await CacheService.deleteByPattern(`orders:${order.buyer_id}:*`);
       await CacheService.deleteByPattern(`orders:${order.owner_id}:*`);
+
+      // --- BADGE TRIGGER ---
+      // Trigger evaluation for Seller (Sales Count incremented)
+      // We do this asynchronously to not block the response
+      BadgeService.evaluateBadges(order.owner_id).catch(console.error);
 
       res.json({ message: "Order delivered successfully" });
     } catch (error) {
