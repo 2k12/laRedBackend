@@ -31,7 +31,7 @@ export class EconomyController {
       // Verify Admin
       const userRoles = req.user?.roles || [];
       if (!userRoles.includes("ADMIN")) {
-        return res.status(403).json({ error: "Require Admin Role" });
+        return res.status(403).json({ error: "Require Admin Role (Config)" });
       }
 
       const { configs } = req.body; // { "MAX_PRODUCT_PRICE_CAP": "1200", ... }
@@ -65,7 +65,7 @@ export class EconomyController {
       // Verify Admin
       const userRoles = req.user?.roles || [];
       if (!userRoles.includes("ADMIN")) {
-        return res.status(403).json({ error: "Require Admin Role" });
+        return res.status(403).json({ error: "Require Admin Role (Semester)" });
       }
 
       const { semester } = req.body;
@@ -166,10 +166,15 @@ export class EconomyController {
       const userId = req.user.id;
       const minAmount = 1;
 
-      // 1. Verify Admin Role
+      // 1. Verify SYSTEM Role (Treasury)
+      console.log(
+        `Manual Mint Attempt: User ${userId} with roles ${req.user?.roles}`,
+      );
       const userRoles = req.user?.roles || [];
-      if (!userRoles.includes("ADMIN")) {
-        return res.status(403).json({ error: "Require Admin Role" });
+      if (!userRoles.includes("SYSTEM")) {
+        return res
+          .status(403)
+          .json({ error: "Require SYSTEM Role (Manual Mint)" });
       }
 
       // 2. Verify Password
